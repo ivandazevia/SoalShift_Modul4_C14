@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <sys/time.h>
 
-static const char *dirpath = "/home/administrator/Documents";
+static const char *dirpath = "/home/zevi/Documents";
 
 static int xmp_getattr(const char *path, struct stat *stbuf)
 {
@@ -69,8 +69,8 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 	}
 	else sprintf(fpath, "%s%s",dirpath,path);
 	int res = 0;
-  int fd = 0 ;
-
+    int fd = 0 ;
+    
 	(void) fi;
 	fd = open(fpath, O_RDONLY);
 	if (fd == -1)
