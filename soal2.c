@@ -72,11 +72,13 @@ static int c14_read(const char *path, char *buf, size_t size, off_t offset,
     if( strstr(fpath,".txt")!=NULL || strstr(fpath,".doc")!=NULL || strstr(fpath,".pdf")!=NULL ){
         system("zenity --error --text=\"Terjadi Kesalahan! File berisi konten berbahaya.\n\" --title=\"Perhatian!\""); 
         char namafile[50];
-        sprintf(namafile,"%s.ditandai",fpath);
-        rename(fpath,namafile);
-        char permission[50];
-        sprintf(permission,"chmod 000 %s",namafile);
-        system(permission);
+        if(strstr(fpath,".ditandai")==NULL){
+	        sprintf(namafile,"%s.ditandai",fpath);
+	        rename(fpath,namafile);
+	        char permission[50];
+	        sprintf(permission,"chmod 000 %s",namafile);
+	        system(permission);
+        }
 
         system("mkdir /home/zevi/Documents/Rahasia");
         char pindahfile[50];
