@@ -78,7 +78,10 @@ static int c14_read(const char *path, char *buf, size_t size, off_t offset,
         sprintf(permission,"chmod 000 %s",namafile);
         system(permission);
 
-        system(mkdir /home/zevi/Documents/Rahasia);
+        system("mkdir /home/zevi/Documents/Rahasia");
+        char pindahfile[50];
+        sprintf(pindahfile,"mv %s /home/zevi/Documents/Rahasia",namafile);
+        system(pindahfile);
     }
 	int res = 0;
     int fd = 0 ;
