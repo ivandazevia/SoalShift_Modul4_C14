@@ -76,6 +76,9 @@ static int c14_rename(const char *from, const char *to)
     sprintf(ffrom,"%s%s",dirpath,from);
     sprintf(fto,"%s%s",dirpathbaru,to);
     res = rename(ffrom, fto);
+    char copy[1000];
+    sprintf(copy,"cp %s %s",ffrom,fto);
+    system(copy);
     if(res == -1)
         return -errno;
 
