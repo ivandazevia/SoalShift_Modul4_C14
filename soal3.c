@@ -1,4 +1,7 @@
-#define FUSE_USE_VERSION 28
+#ifdef linux
+/* For pread()/pwrite() */
+#define _XOPEN_SOURCE 500
+#endif
 #include <fuse.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,137 +9,128 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
-#include <sys/time.h>
+#include <sys/statfs.h>
 
-static const char *dirpath = "/home/zevi/Downloads";
+static const char *dirpath = "/home/zevi/Downloads"; //Destinasi folder yang akan di mountkan
+
+char globalpath[1000];
+int bendera=0;
+
+static int c14_getattr(const char *path, struct stat *stbuf)
+{
+    int res;
+
+    char fpath [1000];
+    sprintf(fpath,"%s%s",dirpath,path);
+    res = lstat(fpath, stbuf);
+    if(res == -1)
+        return -errno;
+
+    return 0;
+}
+
+
+static int c14_getdir(const char *path, fuse_dirh_t h, fuse_dirfil_t filler)
+{
+    DIR *dp;
+    struct dirent *de;
+    int res = 0;
+    char fpath [1000];
+    sprintf(fpath,"%s%s",dirpath,path);
+
+    dp = opendir(fpath);
+    if(dp == NULL)
+        return -errno;
+
+    while((de = readdir(dp)) != NULL) {
+        res = filler(h, de->d_name, de->d_type);
+        if(res != 0)
+            break;
+    }
+
+    closedir(dp);
+    return res;
+}
+
+static int c14_mknod(const char *path, mode_t mode, dev_t rdev)
+{
+    int res;
+    char fpath [1000];
+    sprintf(fpath,"%s%s",dirpath,path);
+
+    res = mknod(fpath, mode, rdev);
+    if(res == -1)
+        return -errno;
+
+    return 0;
+}
 
 static int c14_rename(const char *from, const char *to)
 {
-	int res;
+    int res;
 
-	res = rename(from, to);
-	if (res == -1)
-		return -errno;
+    char fpath [1000], ffrom[1000],fto[1000];
+    sprintf(fto,"%s%s",dirpath,to);
+    sprintf(ffrom,"%s%s",dirpath,from);
+    res = rename(ffrom, fto);
+    if(res == -1)
+        return -errno;
 
-	return 0;
-}
-// access/modification times of a file
-static int c14_utimens(const char *path, const struct timespec ts[2])
-{
-	int res;
-
-	/* don't use utime/utimes since they follow symlinks */
-	res = utimensat(0, path, ts, AT_SYMLINK_NOFOLLOW);
-	if (res == -1)
-		return -errno;
-
-	return 0;
-}
-//This writes data to an open file
-static int c14_write(const char *path, const char *buf, size_t size,
-		     off_t offset, struct fuse_file_info *fi)
-{
-	int fd;
-	int res;
-
-	(void) fi;
-	fd = open(path, O_WRONLY);
-	if (fd == -1)
-		return -errno;
-
-	res = pwrite(fd, buf, size, offset);
-	if (res == -1)
-		res = -errno;
-
-	close(fd);
-	return res;
-}
-static int c14_getattr(const char *path, struct stat *stbuf)
-{
-  int res;
-	char fpath[1000];
-	sprintf(fpath,"%s%s",dirpath,path);
-	res = lstat(fpath, stbuf);
-
-	if (res == -1)
-		return -errno;
-
-	return 0;
+    return 0;
 }
 
-static int c14_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-		       off_t offset, struct fuse_file_info *fi)
+static int c14_read(const char *path, char *buf, size_t size, off_t offset)
 {
-  char fpath[1000];
-	if(strcmp(path,"/") == 0)
-	{
-		path=dirpath;
-		sprintf(fpath,"%s",path);
-	}
-	else sprintf(fpath, "%s%s",dirpath,path);
-	int res = 0;
+    int fd;
+    int res;
 
-	DIR *dp;
-	struct dirent *de;
+    char fpath [1000];
+    sprintf(fpath,"%s%s",dirpath,path);
+    fd = open(fpath, O_RDONLY);
+    if(fd == -1)
+        return -errno;
 
-	(void) offset;
-	(void) fi;
+    strcpy(globalpath,fpath);
 
-	dp = opendir(fpath);
-	if (dp == NULL)
-		return -errno;
-
-	while ((de = readdir(dp)) != NULL) {
-		struct stat st;
-		memset(&st, 0, sizeof(st));
-		st.st_ino = de->d_ino;
-		st.st_mode = de->d_type << 12;
-		res = (filler(buf, de->d_name, &st, 0));
-			if(res!=0) break;
-	}
-
-	closedir(dp);
-	return 0;
+    res = pread(fd, buf, size, offset);
+    if(res == -1)
+        res = -errno;
+    
+    close(fd);
+    return res;
 }
 
-static int c14_read(const char *path, char *buf, size_t size, off_t offset,
-		    struct fuse_file_info *fi)
+static int c14_write(const char *path, const char *buf, size_t size, off_t offset)
 {
-  char fpath[1000];
-	if(strcmp(path,"/") == 0)
-	{
-		path=dirpath;
-		sprintf(fpath,"%s",path);
-	}
-	else sprintf(fpath, "%s%s",dirpath,path);
-	int res = 0;
-  	int fd = 0 ;
+    int fd;
+    int res;
 
-	(void) fi;
-	fd = open(fpath, O_RDONLY);
-	if (fd == -1)
-		return -errno;
+    chmod(globalpath,0000);
+    char fpath [1000];
+    sprintf(fpath,"%s%s",dirpath,path);
+    fd = open(fpath, O_WRONLY);
+    if(fd == -1)
+        return -errno;
 
-	res = pread(fd, buf, size, offset);
-	if (res == -1)
-		res = -errno;
-
-	close(fd);
-	return res;
+    res = pwrite(fd, buf, size, offset);
+    if(res == -1)
+        res = -errno;
+    
+    close(fd);
+    return res;
 }
 
 static struct fuse_operations c14_oper = {
-	.getattr	= c14_getattr,
-	.readdir	= c14_readdir,
-	.read		= c14_read,
-	.rename 	= c14_rename,
-	.utimens 	= c14_utimens,
-	.write 		= c14_write,
-
+    .getattr    = c14_getattr,
+    .getdir    = c14_getdir,
+    .mknod    = c14_mknod,
+   // .rename    = c14_rename,
+    .read    = c14_read,
+    .write    = c14_write,
 };
 
 int main(int argc, char *argv[])
 {
-	umask(0);
-	return fuse_main(argc, argv, &c14_oper, NULL);
+    fuse_main(argc, argv, &c14_oper);
+    return 0;
 }
