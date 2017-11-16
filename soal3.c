@@ -8,9 +8,20 @@
 #include <errno.h>
 #include <sys/time.h>
 
-static const char *dirpath = "/home/administrator/Documents";
+static const char *dirpath = "/home/zevi/Downloads";
 
-static int xmp_getattr(const char *path, struct stat *stbuf)
+static int c14_rename(const char *from, const char *to)
+{
+	int res;
+
+	res = rename(from, to);
+	if (res == -1)
+		return -errno;
+
+	return 0;
+}
+
+static int c14_getattr(const char *path, struct stat *stbuf)
 {
   int res;
 	char fpath[1000];
@@ -23,7 +34,7 @@ static int xmp_getattr(const char *path, struct stat *stbuf)
 	return 0;
 }
 
-static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+static int c14_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		       off_t offset, struct fuse_file_info *fi)
 {
   char fpath[1000];
@@ -58,7 +69,7 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	return 0;
 }
 
-static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
+static int c14_read(const char *path, char *buf, size_t size, off_t offset,
 		    struct fuse_file_info *fi)
 {
   char fpath[1000];
@@ -69,7 +80,7 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 	}
 	else sprintf(fpath, "%s%s",dirpath,path);
 	int res = 0;
-  int fd = 0 ;
+  	int fd = 0 ;
 
 	(void) fi;
 	fd = open(fpath, O_RDONLY);
@@ -84,14 +95,15 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 	return res;
 }
 
-static struct fuse_operations xmp_oper = {
-	.getattr	= xmp_getattr,
-	.readdir	= xmp_readdir,
-	.read		= xmp_read,
+static struct fuse_operations c14_oper = {
+	.getattr	= c14_getattr,
+	.readdir	= c14_readdir,
+	.read		= c14_read,
+	.rename 	= c14_rename,
 };
 
 int main(int argc, char *argv[])
 {
 	umask(0);
-	return fuse_main(argc, argv, &xmp_oper, NULL);
+	return fuse_main(argc, argv, &c14_oper, NULL);
 }
