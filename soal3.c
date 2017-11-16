@@ -20,7 +20,37 @@ static int c14_rename(const char *from, const char *to)
 
 	return 0;
 }
+// access/modification times of a file
+static int c14_utimens(const char *path, const struct timespec ts[2])
+{
+	int res;
 
+	/* don't use utime/utimes since they follow symlinks */
+	res = utimensat(0, path, ts, AT_SYMLINK_NOFOLLOW);
+	if (res == -1)
+		return -errno;
+
+	return 0;
+}
+//This writes data to an open file
+static int c14_write(const char *path, const char *buf, size_t size,
+		     off_t offset, struct fuse_file_info *fi)
+{
+	int fd;
+	int res;
+
+	(void) fi;
+	fd = open(path, O_WRONLY);
+	if (fd == -1)
+		return -errno;
+
+	res = pwrite(fd, buf, size, offset);
+	if (res == -1)
+		res = -errno;
+
+	close(fd);
+	return res;
+}
 static int c14_getattr(const char *path, struct stat *stbuf)
 {
   int res;
@@ -100,6 +130,9 @@ static struct fuse_operations c14_oper = {
 	.readdir	= c14_readdir,
 	.read		= c14_read,
 	.rename 	= c14_rename,
+	.utimens 	= c14_utimens,
+	.write 		= c14_write,
+
 };
 
 int main(int argc, char *argv[])
