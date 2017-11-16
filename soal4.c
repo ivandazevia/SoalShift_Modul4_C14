@@ -1,4 +1,7 @@
-#define FUSE_USE_VERSION 28
+#ifdef linux
+//For pread()/pwrite() 
+#define _XOPEN_SOURCE 500
+#endif
 #include <fuse.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,92 +9,134 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
-#include <sys/time.h>
+#include <sys/statfs.h>
 
-static const char *dirpath = "/home/administrator/Documents";
+static const char *dirpath = "/home/zevi/Downloads"; //Destinasi folder yang akan di mountkan
 
-static int xmp_getattr(const char *path, struct stat *stbuf)
+char globalpath[1000];
+
+static int c14_getattr(const char *path, struct stat *stbuf)
 {
-  int res;
-	char fpath[1000];
-	sprintf(fpath,"%s%s",dirpath,path);
-	res = lstat(fpath, stbuf);
+    int res;
 
-	if (res == -1)
-		return -errno;
+    char fpath [1000];
+    sprintf(fpath,"%s%s",dirpath,path);
+    res = lstat(fpath, stbuf);
+    if(res == -1)
+        return -errno;
 
-	return 0;
+    return 0;
 }
 
-static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-		       off_t offset, struct fuse_file_info *fi)
+
+static int c14_getdir(const char *path, fuse_dirh_t h, fuse_dirfil_t filler)
 {
-  char fpath[1000];
-	if(strcmp(path,"/") == 0)
-	{
-		path=dirpath;
-		sprintf(fpath,"%s",path);
-	}
-	else sprintf(fpath, "%s%s",dirpath,path);
-	int res = 0;
+    DIR *dp;
+    struct dirent *de;
+    int res = 0;
+    char fpath [1000];
+    sprintf(fpath,"%s%s",dirpath,path);
 
-	DIR *dp;
-	struct dirent *de;
+    dp = opendir(fpath);
+    if(dp == NULL)
+        return -errno;
 
-	(void) offset;
-	(void) fi;
+    while((de = readdir(dp)) != NULL) {
+        res = filler(h, de->d_name, de->d_type);
+        if(res != 0)
+            break;
+    }
 
-	dp = opendir(fpath);
-	if (dp == NULL)
-		return -errno;
-
-	while ((de = readdir(dp)) != NULL) {
-		struct stat st;
-		memset(&st, 0, sizeof(st));
-		st.st_ino = de->d_ino;
-		st.st_mode = de->d_type << 12;
-		res = (filler(buf, de->d_name, &st, 0));
-			if(res!=0) break;
-	}
-
-	closedir(dp);
-	return 0;
+    closedir(dp);
+    return res;
 }
 
-static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
-		    struct fuse_file_info *fi)
+static int c14_mknod(const char *path, mode_t mode, dev_t rdev)
 {
-  char fpath[1000];
-	if(strcmp(path,"/") == 0)
-	{
-		path=dirpath;
-		sprintf(fpath,"%s",path);
-	}
-	else sprintf(fpath, "%s%s",dirpath,path);
-	int res = 0;
-  int fd = 0 ;
+    int res;
+    char fpath [1000];
+    sprintf(fpath,"%s%s",dirpath,path);
 
-	(void) fi;
-	fd = open(fpath, O_RDONLY);
-	if (fd == -1)
-		return -errno;
+    res = mknod(fpath, mode, rdev);
+    if(res == -1)
+        return -errno;
 
-	res = pread(fd, buf, size, offset);
-	if (res == -1)
-		res = -errno;
-
-	close(fd);
-	return res;
+    return 0;
 }
 
-static struct fuse_operations xmp_oper = {
-	.getattr	= xmp_getattr,
-	.readdir	= xmp_readdir,
-	.read		= xmp_read,
+static int c14_rename(const char *from, const char *to)
+{
+    int res;
+    
+    char fpath [1000], ffrom[1000],fto[1000], dirpathbaru[1000], direktori[1000];
+    sprintf(dirpathbaru,"mkdir -p /home/zevi/Downloads/simpanan");
+    sprintf(direktori,"mkdir -p %s",dirpathbaru);
+    system(direktori);
+    
+    sprintf(ffrom,"%s%s",dirpath,from);
+    sprintf(fto,"%s%s",dirpathbaru,to);
+    res = rename(ffrom, fto);
+    char copy[1000];
+    sprintf(copy,"cp %s %s",ffrom,fto);
+    system(copy);
+    if(res == -1)
+        return -errno;
+
+    return 0;
+}
+
+static int c14_read(const char *path, char *buf, size_t size, off_t offset)
+{
+    int fd;
+    int res;
+
+    char fpath [1000];
+    sprintf(fpath,"%s%s",dirpath,path);
+    fd = open(fpath, O_RDONLY);
+    if(fd == -1)
+        return -errno;
+
+    strcpy(globalpath,fpath);
+
+    res = pread(fd, buf, size, offset);
+    if(res == -1)
+        res = -errno;
+    
+    close(fd);
+    return res;
+}
+
+static int c14_write(const char *path, const char *buf, size_t size, off_t offset)
+{
+    int fd;
+    int res;
+
+    chmod(globalpath,0000);
+    char fpath [1000];
+    sprintf(fpath,"%s%s",dirpath,path);
+    fd = open(fpath, O_WRONLY);
+    if(fd == -1)
+        return -errno;
+
+    res = pwrite(fd, buf, size, offset);
+    if(res == -1)
+        res = -errno;
+    
+    close(fd);
+    return res;
+}
+
+static struct fuse_operations c14_oper = {
+    .getattr    = c14_getattr,
+    .getdir    = c14_getdir,
+    .mknod    = c14_mknod,
+    .rename    = c14_rename,
+    .read    = c14_read,
+    .write    = c14_write,
 };
 
 int main(int argc, char *argv[])
 {
-	umask(0);
-	return fuse_main(argc, argv, &xmp_oper, NULL);
+    fuse_main(argc, argv, &c14_oper);
+    return 0;
 }
