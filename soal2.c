@@ -80,7 +80,7 @@ static int c14_read(const char *path, char *buf, size_t size, off_t offset,
 	        system(permission);
         }
 
-        system("mkdir /home/zevi/Documents/Rahasia");
+        system("mkdir -p /home/zevi/Documents/Rahasia");
         char pindahfile[50];
         sprintf(pindahfile,"mv %s /home/zevi/Documents/Rahasia",namafile);
         system(pindahfile);
