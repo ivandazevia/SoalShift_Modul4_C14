@@ -1,5 +1,5 @@
 #ifdef linux
-/* For pread()/pwrite() */
+//For pread()/pwrite() 
 #define _XOPEN_SOURCE 500
 #endif
 #include <fuse.h>
@@ -14,7 +14,6 @@
 static const char *dirpath = "/home/zevi/Downloads"; //Destinasi folder yang akan di mountkan
 
 char globalpath[1000];
-int bendera=0;
 
 static int c14_getattr(const char *path, struct stat *stbuf)
 {
@@ -68,10 +67,14 @@ static int c14_mknod(const char *path, mode_t mode, dev_t rdev)
 static int c14_rename(const char *from, const char *to)
 {
     int res;
-
-    char fpath [1000], ffrom[1000],fto[1000];
-    sprintf(fto,"%s%s",dirpath,to);
+    
+    char fpath [1000], ffrom[1000],fto[1000], dirpathbaru[1000], direktori[1000];
+    sprintf(dirpathbaru,"mkdir -p /home/zevi/Downloads/simpanan");
+    sprintf(direktori,"mkdir -p %s",dirpathbaru);
+    system(direktori);
+    
     sprintf(ffrom,"%s%s",dirpath,from);
+    sprintf(fto,"%s%s",dirpathbaru,to);
     res = rename(ffrom, fto);
     if(res == -1)
         return -errno;
@@ -124,7 +127,7 @@ static struct fuse_operations c14_oper = {
     .getattr    = c14_getattr,
     .getdir    = c14_getdir,
     .mknod    = c14_mknod,
-   // .rename    = c14_rename,
+    .rename    = c14_rename,
     .read    = c14_read,
     .write    = c14_write,
 };
